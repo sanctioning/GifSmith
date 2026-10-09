@@ -1,0 +1,762 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gifsmith</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Anton&family=Oswald:wght@600&family=Bangers&family=Comic+Neue:wght@700&family=Permanent+Marker&family=Archivo+Black&display=swap">
+<style>
+/* Layout: editing stage on the left (sticky on desktop), a stacked control rail on the right; stacks to one column on phones. */
+:root {
+  --bg: #eceef4;
+  --panel: #ffffff;
+  --ink: #15171f;
+  --muted: #5b6070;
+  --line: #d5d9e3;
+  --field: #f5f6fa;
+  --accent: #2743d6;
+  --accent-ink: #ffffff;
+  --hi: #ffc934;
+  --stage: #d9dce5;
+  --stage-2: #cfd3de;
+  --danger: #c2372b;
+  --f-display: "Bricolage Grotesque", "Arial Black", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101219; --panel: #191c26; --ink: #eceef5; --muted: #9499aa; --line: #2b2f3e;
+    --field: #12141c; --accent: #7088ff; --accent-ink: #0c0e16; --hi: #ffc934;
+    --stage: #1f2230; --stage-2: #262a3a; --danger: #ff7a6b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101219; --panel: #191c26; --ink: #eceef5; --muted: #9499aa; --line: #2b2f3e;
+  --field: #12141c; --accent: #7088ff; --accent-ink: #0c0e16; --hi: #ffc934;
+  --stage: #1f2230; --stage-2: #262a3a; --danger: #ff7a6b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--f-body); }
+.app { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 14px 40px; display: grid; gap: 14px; }
+.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.logo { font: 800 26px/1 var(--f-display); letter-spacing: -0.02em; margin: 0; }
+.logo span { background: var(--hi); color: #15171f; padding: 0 6px; border-radius: 4px; margin-left: 2px; }
+.tag { color: var(--muted); font-size: 13px; }
+.top .spacer { flex: 1; }
+.work { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+@media (max-width: 880px) { .work { grid-template-columns: minmax(0, 1fr); } }
+.stage-wrap { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); display: grid; gap: 10px; min-width: 0; }
+@media (max-width: 880px) { .stage-wrap { position: static; } }
+.stage {
+  position: relative; border-radius: 10px; min-height: 320px; display: grid; place-items: center; padding: 18px; overflow: hidden;
+  background-color: var(--stage);
+  background-image: linear-gradient(45deg, var(--stage-2) 25%, transparent 25%, transparent 75%, var(--stage-2) 75%), linear-gradient(45deg, var(--stage-2) 25%, transparent 25%, transparent 75%, var(--stage-2) 75%);
+  background-size: 20px 20px; background-position: 0 0, 10px 10px;
+  border: 1px solid var(--line);
+}
+.stage canvas { max-width: 100%; max-height: 68vh; height: auto; display: block; box-shadow: 0 6px 24px rgba(0,0,0,.18); touch-action: none; cursor: default; }
+.stage.dragover { outline: 3px dashed var(--accent); outline-offset: -8px; }
+.stage .busy { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 80%, transparent); font-weight: 600; }
+.transport { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.transport input[type=range] { flex: 1; min-width: 0; }
+.counter { font: 12px var(--f-mono); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+.hint b { color: var(--ink); font-weight: 600; }
+
+.panel { display: grid; gap: 12px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 10px; min-width: 0; }
+.card h2 { font: 700 15px/1.2 var(--f-display); margin: 0; display: flex; align-items: center; gap: 8px; }
+.card h2 small { font: 400 12px var(--f-body); color: var(--muted); margin-left: auto; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 10px; }
+label.f { display: grid; gap: 4px; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 500; min-width: 0; }
+label.f output { font: 11.5px var(--f-mono); text-transform: none; letter-spacing: 0; color: var(--ink); float: right; }
+input[type=text], input[type=number], select, textarea {
+  width: 100%; min-width: 0; font: 14px var(--f-body); color: var(--ink); background: var(--field);
+  border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px;
+}
+textarea { resize: vertical; min-height: 58px; font-weight: 600; }
+input[type=number] { font-family: var(--f-mono); }
+input[type=color] { width: 100%; height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 7px; background: var(--field); }
+input[type=range] { accent-color: var(--accent); width: 100%; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn {
+  font: 600 13.5px var(--f-body); border-radius: 7px; padding: 8px 12px; border: 1px solid var(--line);
+  background: var(--field); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { color: var(--danger); }
+.btn.icon { padding: 7px 10px; font-family: var(--f-mono); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.wide { width: 100%; justify-content: center; padding: 11px; font-size: 15px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { font: 500 13px var(--f-body); border: 0; background: var(--field); color: var(--ink); padding: 7px 10px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed=true] { background: var(--ink); color: var(--bg); }
+.layers { display: grid; gap: 6px; }
+.layer {
+  display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 7px; border: 1px solid var(--line);
+  background: var(--field); cursor: pointer; text-align: left; font: 600 13px var(--f-body); color: var(--ink); width: 100%;
+}
+.layer .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layer .k { font: 11px var(--f-mono); color: var(--muted); }
+.layer[aria-selected=true] { border-color: var(--hi); box-shadow: inset 3px 0 0 var(--hi); }
+.editor { display: grid; gap: 10px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.check { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+.progress { height: 6px; border-radius: 3px; background: var(--field); overflow: hidden; border: 1px solid var(--line); }
+.progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .1s; }
+.result { display: grid; gap: 8px; }
+.result img { max-width: 100%; border-radius: 6px; border: 1px solid var(--line); justify-self: start; }
+.result .meta { font: 12px var(--f-mono); color: var(--muted); }
+.note { font-size: 12.5px; color: var(--muted); margin: 0; }
+.status { font-size: 12.5px; }
+.status.err { color: var(--danger); }
+@media (prefers-reduced-motion: reduce) { .progress i { transition: none; } }
+</style>
+</head><body>
+<div class="app">
+  <header class="top">
+    <h1 class="logo">Gif<span>smith</span></h1>
+    <span class="tag">Caption, trim and remix GIFs into memes</span>
+    <span class="spacer"></span>
+    <label class="btn primary" for="fileIn">Open GIF or image</label>
+    <input id="fileIn" type="file" accept="image/gif,image/png,image/jpeg,image/webp" hidden>
+  </header>
+
+  <main class="work">
+    <section class="stage-wrap">
+      <div class="stage" id="stage">
+        <canvas id="view" width="360" height="300" aria-label="Meme preview. Drag text to move it."></canvas>
+        <div class="busy" id="busy" hidden>Loading frames…</div>
+      </div>
+      <div class="transport">
+        <button class="btn icon" id="playBtn" aria-label="Pause">❚❚</button>
+        <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Frame">
+        <span class="counter" id="counter">1 / 1</span>
+      </div>
+      <p class="hint" id="srcInfo"></p>
+      <p class="hint"><b>Drag</b> text on the preview to move it. <b>Drop</b> or <b>paste</b> a GIF anywhere on the page to replace the source.</p>
+    </section>
+
+    <aside class="panel">
+      <div class="card">
+        <h2>Text <small>top/bottom meme style</small></h2>
+        <div class="layers" id="layerList" role="listbox" aria-label="Text layers"></div>
+        <div class="row">
+          <button class="btn" id="addText">+ Add text</button>
+          <button class="btn" id="dupText">Duplicate</button>
+          <button class="btn danger" id="delText">Delete</button>
+        </div>
+        <div class="editor" id="editor">
+          <textarea id="tText" aria-label="Text"></textarea>
+          <div class="grid2">
+            <label class="f">Font
+              <select id="tFont"></select>
+            </label>
+            <label class="f">Align
+              <select id="tAlign"><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select>
+            </label>
+          </div>
+          <label class="f">Size <output id="tSizeO"></output><input type="range" id="tSize" min="3" max="30" step="0.5"></label>
+          <div class="grid3">
+            <label class="f">Fill<input type="color" id="tFill"></label>
+            <label class="f">Outline<input type="color" id="tStroke"></label>
+            <label class="f">Width <output id="tStrokeWO"></output><input type="range" id="tStrokeW" min="0" max="25" step="1"></label>
+          </div>
+          <div class="row">
+            <label class="check"><input type="checkbox" id="tUpper"> ALL CAPS</label>
+            <label class="check"><input type="checkbox" id="tShadow"> Drop shadow</label>
+          </div>
+          <div class="grid2">
+            <label class="f">Show from frame<input type="number" id="tFrom" min="1"></label>
+            <label class="f">to frame<input type="number" id="tTo" min="1"></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Caption bar <small>reaction-GIF style</small></h2>
+        <label class="check"><input type="checkbox" id="cOn"> Add a caption bar above the GIF</label>
+        <div id="cFields" class="editor" style="border-top:0;padding-top:0">
+          <textarea id="cText" aria-label="Caption text"></textarea>
+          <div class="grid2">
+            <label class="f">Font<select id="cFont"></select></label>
+            <label class="f">Size <output id="cSizeO"></output><input type="range" id="cSize" min="3" max="14" step="0.5"></label>
+          </div>
+          <div class="grid2">
+            <label class="f">Bar<input type="color" id="cBg"></label>
+            <label class="f">Text<input type="color" id="cFg"></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Timing</h2>
+        <div class="grid2">
+          <label class="f">Start frame<input type="number" id="trimA" min="1"></label>
+          <label class="f">End frame<input type="number" id="trimB" min="1"></label>
+        </div>
+        <div class="row">
+          <button class="btn" id="setA">Start here</button>
+          <button class="btn" id="setB">End here</button>
+          <button class="btn" id="resetTrim">Reset</button>
+        </div>
+        <label class="f">Speed <output id="speedO"></output><input type="range" id="speed" min="0.25" max="4" step="0.25"></label>
+        <div class="row">
+          <div class="seg" id="dirSeg" role="group" aria-label="Direction">
+            <button data-v="forward">Forward</button><button data-v="reverse">Reverse</button><button data-v="boomerang">Boomerang</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Look</h2>
+        <div class="row">
+          <div class="seg" id="fxSeg" role="group" aria-label="Filter">
+            <button data-v="none">None</button><button data-v="deepfry">Deep fry</button><button data-v="mono">B&amp;W</button><button data-v="vintage">Vintage</button><button data-v="invert">Invert</button>
+          </div>
+        </div>
+        <div class="grid2">
+          <label class="f">Output width<select id="outW"></select></label>
+          <label class="f">Colors<select id="colors"><option value="256">256 (best)</option><option value="128">128</option><option value="64">64 (smaller)</option><option value="32">32 (crunchy)</option></select></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Export</h2>
+        <button class="btn primary wide" id="exportBtn">Make GIF</button>
+        <div class="progress" id="prog" hidden><i></i></div>
+        <p class="status" id="status" hidden></p>
+        <div class="result" id="result" hidden>
+          <img id="resultImg" alt="Exported meme GIF">
+          <span class="meta" id="resultMeta"></span>
+          <button class="btn" id="saveBtn">Save GIF</button>
+          <p class="note" id="saveNote" hidden>Saving from this page isn't available here. Right-click (or long-press) the GIF above to save or copy it.</p>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+<script>
+var GifLib=(()=>{var Ie=Object.create;var R=Object.defineProperty;var Ce=Object.getOwnPropertyDescriptor;var ze=Object.getOwnPropertyNames;var Ue=Object.getPrototypeOf,Fe=Object.prototype.hasOwnProperty;var E=(t,e)=>()=>{try{return e||t((e={exports:{}}).exports,e),e.exports}catch(n){throw e=0,n}},Te=(t,e)=>{for(var n in e)R(t,n,{get:e[n],enumerable:!0})},ce=(t,e,n,r)=>{if(e&&typeof e=="object"||typeof e=="function")for(let i of ze(e))!Fe.call(t,i)&&i!==n&&R(t,i,{get:()=>e[i],enumerable:!(r=Ce(e,i))||r.enumerable});return t};var se=(t,e,n)=>(n=t!=null?Ie(Ue(t)):{},ce(e||!t||!t.__esModule?R(n,"default",{value:t,enumerable:!0}):n,t)),qe=t=>ce(R({},"__esModule",{value:!0}),t);var ee=E(F=>{"use strict";Object.defineProperty(F,"__esModule",{value:!0});F.loop=F.conditional=F.parse=void 0;var Pe=function t(e,n){var r=arguments.length>2&&arguments[2]!==void 0?arguments[2]:{},i=arguments.length>3&&arguments[3]!==void 0?arguments[3]:r;if(Array.isArray(n))n.forEach(function(c){return t(e,c,r,i)});else if(typeof n=="function")n(e,r,i,t);else{var o=Object.keys(n)[0];Array.isArray(n[o])?(i[o]={},t(e,n[o],r,i[o])):i[o]=n[o](e,r,i,t)}return r};F.parse=Pe;var Ee=function(e,n){return function(r,i,o,c){n(r,i,o)&&c(r,e,i,o)}};F.conditional=Ee;var Ge=function(e,n){return function(r,i,o,c){for(var a=[],f=r.pos;n(r,i,o);){var u={};if(c(r,e,i,u),r.pos===f)break;f=r.pos,a.push(u)}return a}};F.loop=Ge});var te=E(k=>{"use strict";Object.defineProperty(k,"__esModule",{value:!0});k.readBits=k.readArray=k.readUnsigned=k.readString=k.peekBytes=k.readBytes=k.peekByte=k.readByte=k.buildStream=void 0;var De=function(e){return{data:e,pos:0}};k.buildStream=De;var le=function(){return function(e){return e.data[e.pos++]}};k.readByte=le;var je=function(){var e=arguments.length>0&&arguments[0]!==void 0?arguments[0]:0;return function(n){return n.data[n.pos+e]}};k.peekByte=je;var V=function(e){return function(n){return n.data.subarray(n.pos,n.pos+=e)}};k.readBytes=V;var Oe=function(e){return function(n){return n.data.subarray(n.pos,n.pos+e)}};k.peekBytes=Oe;var Re=function(e){return function(n){return Array.from(V(e)(n)).map(function(r){return String.fromCharCode(r)}).join("")}};k.readString=Re;var Ve=function(e){return function(n){var r=V(2)(n);return e?(r[1]<<8)+r[0]:(r[0]<<8)+r[1]}};k.readUnsigned=Ve;var Le=function(e,n){return function(r,i,o){for(var c=typeof n=="function"?n(r,i,o):n,a=V(e),f=new Array(c),u=0;u<c;u++)f[u]=a(r);return f}};k.readArray=Le;var He=function(e,n,r){for(var i=0,o=0;o<r;o++)i+=e[n+o]&&Math.pow(2,r-o-1);return i},Ne=function(e){return function(n){for(var r=le()(n),i=new Array(8),o=0;o<8;o++)i[7-o]=!!(r&1<<o);return Object.keys(e).reduce(function(c,a){var f=e[a];return f.length?c[a]=He(i,f.index,f.length):c[a]=i[f.index],c},{})}};k.readBits=Ne});var ue=E(H=>{"use strict";Object.defineProperty(H,"__esModule",{value:!0});H.default=void 0;var T=ee(),y=te(),L={blocks:function(e){for(var n=0,r=[],i=e.data.length,o=0,c=(0,y.readByte)()(e);c!==n&&c;c=(0,y.readByte)()(e)){if(e.pos+c>=i){var a=i-e.pos;r.push((0,y.readBytes)(a)(e)),o+=a;break}r.push((0,y.readBytes)(c)(e)),o+=c}for(var f=new Uint8Array(o),u=0,l=0;l<r.length;l++)f.set(r[l],u),u+=r[l].length;return f}},Ze=(0,T.conditional)({gce:[{codes:(0,y.readBytes)(2)},{byteSize:(0,y.readByte)()},{extras:(0,y.readBits)({future:{index:0,length:3},disposal:{index:3,length:3},userInput:{index:6},transparentColorGiven:{index:7}})},{delay:(0,y.readUnsigned)(!0)},{transparentColorIndex:(0,y.readByte)()},{terminator:(0,y.readByte)()}]},function(t){var e=(0,y.peekBytes)(2)(t);return e[0]===33&&e[1]===249}),Ke=(0,T.conditional)({image:[{code:(0,y.readByte)()},{descriptor:[{left:(0,y.readUnsigned)(!0)},{top:(0,y.readUnsigned)(!0)},{width:(0,y.readUnsigned)(!0)},{height:(0,y.readUnsigned)(!0)},{lct:(0,y.readBits)({exists:{index:0},interlaced:{index:1},sort:{index:2},future:{index:3,length:2},size:{index:5,length:3}})}]},(0,T.conditional)({lct:(0,y.readArray)(3,function(t,e,n){return Math.pow(2,n.descriptor.lct.size+1)})},function(t,e,n){return n.descriptor.lct.exists}),{data:[{minCodeSize:(0,y.readByte)()},L]}]},function(t){return(0,y.peekByte)()(t)===44}),We=(0,T.conditional)({text:[{codes:(0,y.readBytes)(2)},{blockSize:(0,y.readByte)()},{preData:function(e,n,r){return(0,y.readBytes)(r.text.blockSize)(e)}},L]},function(t){var e=(0,y.peekBytes)(2)(t);return e[0]===33&&e[1]===1}),Xe=(0,T.conditional)({application:[{codes:(0,y.readBytes)(2)},{blockSize:(0,y.readByte)()},{id:function(e,n,r){return(0,y.readString)(r.blockSize)(e)}},L]},function(t){var e=(0,y.peekBytes)(2)(t);return e[0]===33&&e[1]===255}),Ye=(0,T.conditional)({comment:[{codes:(0,y.readBytes)(2)},L]},function(t){var e=(0,y.peekBytes)(2)(t);return e[0]===33&&e[1]===254}),Je=[{header:[{signature:(0,y.readString)(3)},{version:(0,y.readString)(3)}]},{lsd:[{width:(0,y.readUnsigned)(!0)},{height:(0,y.readUnsigned)(!0)},{gct:(0,y.readBits)({exists:{index:0},resolution:{index:1,length:3},sort:{index:4},size:{index:5,length:3}})},{backgroundColorIndex:(0,y.readByte)()},{pixelAspectRatio:(0,y.readByte)()}]},(0,T.conditional)({gct:(0,y.readArray)(3,function(t,e){return Math.pow(2,e.lsd.gct.size+1)})},function(t,e){return e.lsd.gct.exists}),{frames:(0,T.loop)([Ze,Xe,Ye,Ke,We],function(t){var e=(0,y.peekByte)()(t);return e===33||e===44})}],Qe=Je;H.default=Qe});var fe=E(N=>{"use strict";Object.defineProperty(N,"__esModule",{value:!0});N.deinterlace=void 0;var $e=function(e,n){for(var r=new Array(e.length),i=e.length/n,o=function(g,h){var d=e.slice(h*n,(h+1)*n);r.splice.apply(r,[g*n,n].concat(d))},c=[0,4,2,1],a=[8,8,4,2],f=0,u=0;u<4;u++)for(var l=c[u];l<i;l+=a[u])o(l,f),f++;return r};N.deinterlace=$e});var de=E(Z=>{"use strict";Object.defineProperty(Z,"__esModule",{value:!0});Z.lzw=void 0;var et=function(e,n,r){var i=4096,o=-1,c=r,a,f,u,l,s,g,h,M,d,v,A,_,S,b,z,C,p=new Array(r),I=new Array(i),x=new Array(i),w=new Array(i+1);for(_=e,f=1<<_,s=f+1,a=f+2,h=o,l=_+1,u=(1<<l)-1,d=0;d<f;d++)I[d]=0,x[d]=d;var A,M,B,S,b,C,z;for(A=M=B=S=b=C=z=0,v=0;v<c;){if(b===0){if(M<l){A+=n[z]<<M,M+=8,z++;continue}if(d=A&u,A>>=l,M-=l,d>a||d==s)break;if(d==f){l=_+1,u=(1<<l)-1,a=f+2,h=o;continue}if(h==o){w[b++]=x[d],h=d,S=d;continue}for(g=d,d==a&&(w[b++]=S,d=h);d>f;)w[b++]=x[d],d=I[d];S=x[d]&255,w[b++]=S,a<i&&(I[a]=h,x[a]=S,a++,(a&u)===0&&a<i&&(l++,u+=a)),h=g}b--,p[C++]=w[b],v++}for(v=C;v<c;v++)p[v]=0;return p};Z.lzw=et});var ge=E(q=>{"use strict";Object.defineProperty(q,"__esModule",{value:!0});q.decompressFrames=q.decompressFrame=q.parseGIF=void 0;var tt=at(ue()),rt=ee(),nt=te(),it=fe(),ot=de();function at(t){return t&&t.__esModule?t:{default:t}}var ct=function(e){var n=new Uint8Array(e);return(0,rt.parse)((0,nt.buildStream)(n),tt.default)};q.parseGIF=ct;var st=function(e){for(var n=e.pixels.length,r=new Uint8ClampedArray(n*4),i=0;i<n;i++){var o=i*4,c=e.pixels[i],a=e.colorTable[c]||[0,0,0];r[o]=a[0],r[o+1]=a[1],r[o+2]=a[2],r[o+3]=c!==e.transparentIndex?255:0}return r},pe=function(e,n,r){if(!e.image){console.warn("gif frame does not have associated image.");return}var i=e.image,o=i.descriptor.width*i.descriptor.height,c=(0,ot.lzw)(i.data.minCodeSize,i.data.blocks,o);i.descriptor.lct.interlaced&&(c=(0,it.deinterlace)(c,i.descriptor.width));var a={pixels:c,dims:{top:e.image.descriptor.top,left:e.image.descriptor.left,width:e.image.descriptor.width,height:e.image.descriptor.height}};return i.descriptor.lct&&i.descriptor.lct.exists?a.colorTable=i.lct:a.colorTable=n,e.gce&&(a.delay=(e.gce.delay||10)*10,a.disposalType=e.gce.extras.disposal,e.gce.extras.transparentColorGiven&&(a.transparentIndex=e.gce.transparentColorIndex)),r&&(a.patch=st(a)),a};q.decompressFrame=pe;var lt=function(e,n){return e.frames.filter(function(r){return r.image}).map(function(r){return pe(r,e.gct,n)})};q.decompressFrames=lt});var Me=E(oe=>{var we=Object.defineProperty,ut=t=>we(t,"__esModule",{value:!0}),ft=(t,e)=>{for(var n in e)we(t,n,{get:e[n],enumerable:!0})};ut(oe);ft(oe,{GIFEncoder:()=>Se,applyPalette:()=>xt,default:()=>zt,nearestColor:()=>kt,nearestColorIndex:()=>Ae,nearestColorIndexWithDistance:()=>ke,prequantize:()=>bt,quantize:()=>ht,snapColorsToPalette:()=>At});var dt={signature:"GIF",version:"89a",trailer:59,extensionIntroducer:33,applicationExtensionLabel:255,graphicControlExtensionLabel:249,imageSeparator:44,signatureSize:3,versionSize:3,globalColorTableFlagMask:128,colorResolutionMask:112,sortFlagMask:8,globalColorTableSizeMask:7,applicationIdentifierSize:8,applicationAuthCodeSize:3,disposalMethodMask:28,userInputFlagMask:2,transparentColorFlagMask:1,localColorTableFlagMask:128,interlaceFlagMask:64,idSortFlagMask:32,localColorTableSizeMask:7};function be(t=256){let e=0,n=new Uint8Array(t);return{get buffer(){return n.buffer},reset(){e=0},bytesView(){return n.subarray(0,e)},bytes(){return n.slice(0,e)},writeByte(i){r(e+1),n[e]=i,e++},writeBytes(i,o=0,c=i.length){r(e+c);for(let a=0;a<c;a++)n[e++]=i[a+o]},writeBytesView(i,o=0,c=i.byteLength){r(e+c),n.set(i.subarray(o,o+c),e),e+=c}};function r(i){var o=n.length;if(o>=i)return;var c=1024*1024;i=Math.max(i,o*(o<c?2:1.125)>>>0),o!=0&&(i=Math.max(i,256));let a=n;n=new Uint8Array(i),e>0&&n.set(a.subarray(0,e),0)}}var re=12,ye=5003,pt=[0,1,3,7,15,31,63,127,255,511,1023,2047,4095,8191,16383,32767,65535];function gt(t,e,n,r,i=be(512),o=new Uint8Array(256),c=new Int32Array(ye),a=new Int32Array(ye)){let f=c.length,u=Math.max(2,r);o.fill(0),a.fill(0),c.fill(-1);let l=0,s=0,g=u+1,h=g,d=!1,v=h,_=(1<<v)-1,p=1<<g-1,I=p+1,x=p+2,w=0,A=n[0],M=0;for(let b=f;b<65536;b*=2)++M;M=8-M,i.writeByte(u),S(p);let B=n.length;for(let b=1;b<B;b++)e:{let C=n[b],z=(C<<re)+A,m=C<<M^A;if(c[m]===z){A=a[m];break e}let J=m===0?1:f-m;for(;c[m]>=0;)if(m-=J,m<0&&(m+=f),c[m]===z){A=a[m];break e}S(A),A=C,x<1<<re?(a[m]=x++,c[m]=z):(c.fill(-1),x=p+2,d=!0,S(p))}return S(A),S(I),i.writeByte(0),i.bytesView();function S(b){for(l&=pt[s],s>0?l|=b<<s:l=b,s+=v;s>=8;)o[w++]=l&255,w>=254&&(i.writeByte(w),i.writeBytesView(o,0,w),w=0),l>>=8,s-=8;if((x>_||d)&&(d?(v=h,_=(1<<v)-1,d=!1):(++v,_=v===re?1<<v:(1<<v)-1)),b==I){for(;s>0;)o[w++]=l&255,w>=254&&(i.writeByte(w),i.writeBytesView(o,0,w),w=0),l>>=8,s-=8;w>0&&(i.writeByte(w),i.writeBytesView(o,0,w),w=0)}}}var yt=gt;function xe(t,e,n){return t<<8&63488|e<<2&992|n>>3}function Be(t,e,n,r){return t>>4|e&240|(n&240)<<4|(r&240)<<8}function _e(t,e,n){return t>>4<<8|e&240|n>>4}function K(t,e,n){return t<e?e:t>n?n:t}function O(t){return t*t}function ve(t,e,n){var r=0,i=1e100;let o=t[e],c=o.cnt,a=o.ac,f=o.rc,u=o.gc,l=o.bc;for(var s=o.fw;s!=0;s=t[s].fw){let h=t[s],d=h.cnt,v=c*d/(c+d);if(!(v>=i)){var g=0;n&&(g+=v*O(h.ac-a),g>=i)||(g+=v*O(h.rc-f),!(g>=i)&&(g+=v*O(h.gc-u),!(g>=i)&&(g+=v*O(h.bc-l),!(g>=i)&&(i=g,r=s))))}}o.err=i,o.nn=r}function ne(){return{ac:0,rc:0,gc:0,bc:0,cnt:0,nn:0,fw:0,bk:0,tm:0,mtm:0,err:0}}function vt(t,e){let n=e==="rgb444"?4096:65536,r=new Array(n),i=t.length;if(e==="rgba4444")for(let o=0;o<i;++o){let c=t[o],a=c>>24&255,f=c>>16&255,u=c>>8&255,l=c&255,s=Be(l,u,f,a),g=s in r?r[s]:r[s]=ne();g.rc+=l,g.gc+=u,g.bc+=f,g.ac+=a,g.cnt++}else if(e==="rgb444")for(let o=0;o<i;++o){let c=t[o],a=c>>16&255,f=c>>8&255,u=c&255,l=_e(u,f,a),s=l in r?r[l]:r[l]=ne();s.rc+=u,s.gc+=f,s.bc+=a,s.cnt++}else for(let o=0;o<i;++o){let c=t[o],a=c>>16&255,f=c>>8&255,u=c&255,l=xe(u,f,a),s=l in r?r[l]:r[l]=ne();s.rc+=u,s.gc+=f,s.bc+=a,s.cnt++}return r}function ht(t,e,n={}){let{format:r="rgb565",clearAlpha:i=!0,clearAlphaColor:o=0,clearAlphaThreshold:c=0,oneBitAlpha:a=!1}=n;if(!t||!t.buffer)throw new Error("quantize() expected RGBA Uint8Array data");if(!(t instanceof Uint8Array)&&!(t instanceof Uint8ClampedArray))throw new Error("quantize() expected RGBA Uint8Array data");let f=new Uint32Array(t.buffer),u=n.useSqrt!==!1,l=r==="rgba4444",s=vt(f,r),g=s.length,h=g-1,d=new Uint32Array(g+1);for(var v=0,p=0;p<g;++p){let U=s[p];if(U!=null){var _=1/U.cnt;l&&(U.ac*=_),U.rc*=_,U.gc*=_,U.bc*=_,s[v++]=U}}O(e)/v<.022&&(u=!1);for(var p=0;p<v-1;++p)s[p].fw=p+1,s[p+1].bk=p,u&&(s[p].cnt=Math.sqrt(s[p].cnt));u&&(s[p].cnt=Math.sqrt(s[p].cnt));var I,x,w;for(p=0;p<v;++p){ve(s,p,!1);var A=s[p].err;for(x=++d[0];x>1&&(w=x>>1,!(s[I=d[w]].err<=A));x=w)d[x]=I;d[x]=p}var M=v-e;for(p=0;p<M;){for(var B;;){var S=d[1];if(B=s[S],B.tm>=B.mtm&&s[B.nn].mtm<=B.tm)break;B.mtm==h?S=d[1]=d[d[0]--]:(ve(s,S,!1),B.tm=p);var A=s[S].err;for(x=1;(w=x+x)<=d[0]&&(w<d[0]&&s[d[w]].err>s[d[w+1]].err&&w++,!(A<=s[I=d[w]].err));x=w)d[x]=I;d[x]=S}var b=s[B.nn],C=B.cnt,z=b.cnt,_=1/(C+z);l&&(B.ac=_*(C*B.ac+z*b.ac)),B.rc=_*(C*B.rc+z*b.rc),B.gc=_*(C*B.gc+z*b.gc),B.bc=_*(C*B.bc+z*b.bc),B.cnt+=b.cnt,B.mtm=++p,s[b.bk].fw=b.fw,s[b.fw].bk=b.bk,b.mtm=h}let m=[];var J=0;for(p=0;;++J){let Q=K(Math.round(s[p].rc),0,255),U=K(Math.round(s[p].gc),0,255),$=K(Math.round(s[p].bc),0,255),D=255;l&&(D=K(Math.round(s[p].ac),0,255),a&&(D=D<=(typeof a=="number"?a:127)?0:255),i&&D<=c&&(Q=U=$=o,D=0));let ae=l?[Q,U,$,D]:[Q,U,$];if(wt(m,ae)||m.push(ae),(p=s[p].fw)==0)break}return m}function wt(t,e){for(let n=0;n<t.length;n++){let r=t[n],i=r[0]===e[0]&&r[1]===e[1]&&r[2]===e[2],o=r.length>=4&&e.length>=4?r[3]===e[3]:!0;if(i&&o)return!0}return!1}function X(t,e){var n=0,r;for(r=0;r<t.length;r++){let i=t[r]-e[r];n+=i*i}return n}function W(t,e){return e>1?Math.round(t/e)*e:t}function bt(t,{roundRGB:e=5,roundAlpha:n=10,oneBitAlpha:r=null}={}){let i=new Uint32Array(t.buffer);for(let o=0;o<i.length;o++){let c=i[o],a=c>>24&255,f=c>>16&255,u=c>>8&255,l=c&255;a=W(a,n),r&&(a=a<=(typeof r=="number"?r:127)?0:255),l=W(l,e),u=W(u,e),f=W(f,e),i[o]=a<<24|f<<16|u<<8|l<<0}}function xt(t,e,n="rgb565"){if(!t||!t.buffer)throw new Error("quantize() expected RGBA Uint8Array data");if(!(t instanceof Uint8Array)&&!(t instanceof Uint8ClampedArray))throw new Error("quantize() expected RGBA Uint8Array data");if(e.length>256)throw new Error("applyPalette() only works with 256 colors or less");let r=new Uint32Array(t.buffer),i=r.length,o=n==="rgb444"?4096:65536,c=new Uint8Array(i),a=new Array(o),f=n==="rgba4444";if(n==="rgba4444")for(let u=0;u<i;u++){let l=r[u],s=l>>24&255,g=l>>16&255,h=l>>8&255,d=l&255,v=Be(d,h,g,s),_=v in a?a[v]:a[v]=Bt(d,h,g,s,e);c[u]=_}else{let u=n==="rgb444"?_e:xe;for(let l=0;l<i;l++){let s=r[l],g=s>>16&255,h=s>>8&255,d=s&255,v=u(d,h,g),_=v in a?a[v]:a[v]=_t(d,h,g,e);c[l]=_}}return c}function Bt(t,e,n,r,i){let o=0,c=1e100;for(let a=0;a<i.length;a++){let f=i[a],u=f[3],l=G(u-r);if(l>c)continue;let s=f[0];if(l+=G(s-t),l>c)continue;let g=f[1];if(l+=G(g-e),l>c)continue;let h=f[2];l+=G(h-n),!(l>c)&&(c=l,o=a)}return o}function _t(t,e,n,r){let i=0,o=1e100;for(let c=0;c<r.length;c++){let a=r[c],f=a[0],u=G(f-t);if(u>o)continue;let l=a[1];if(u+=G(l-e),u>o)continue;let s=a[2];u+=G(s-n),!(u>o)&&(o=u,i=c)}return i}function At(t,e,n=5){if(!t.length||!e.length)return;let r=t.map(c=>c.slice(0,3)),i=n*n,o=t[0].length;for(let c=0;c<e.length;c++){let a=e[c];a.length<o?a=[a[0],a[1],a[2],255]:a.length>o?a=a.slice(0,3):a=a.slice();let f=ke(r,a.slice(0,3),X),u=f[0],l=f[1];l>0&&l<=i&&(t[u]=a)}}function G(t){return t*t}function Ae(t,e,n=X){let r=1/0,i=-1;for(let o=0;o<t.length;o++){let c=t[o],a=n(e,c);a<r&&(r=a,i=o)}return i}function ke(t,e,n=X){let r=1/0,i=-1;for(let o=0;o<t.length;o++){let c=t[o],a=n(e,c);a<r&&(r=a,i=o)}return[i,r]}function kt(t,e,n=X){return t[Ae(t,e,n)]}function Se(t={}){let{initialCapacity:e=4096,auto:n=!0}=t,r=be(e),i=5003,o=new Uint8Array(256),c=new Int32Array(i),a=new Int32Array(i),f=!1;return{reset(){r.reset(),f=!1},finish(){r.writeByte(dt.trailer)},bytes(){return r.bytes()},bytesView(){return r.bytesView()},get buffer(){return r.buffer},get stream(){return r},writeHeader:u,writeFrame(l,s,g,h={}){let{transparent:d=!1,transparentIndex:v=0,delay:_=0,palette:p=null,repeat:I=0,colorDepth:x=8,dispose:w=-1}=h,A=!1;if(n?f||(A=!0,u(),f=!0):A=!!h.first,s=Math.max(0,Math.floor(s)),g=Math.max(0,Math.floor(g)),A){if(!p)throw new Error("First frame must include a { palette } option");mt(r,s,g,p,x),he(r,p),I>=0&&Mt(r,I)}let M=Math.round(_/10);St(r,w,M,d,v);let B=!!p&&!A;It(r,s,g,B?p:null),B&&he(r,p),Ct(r,l,s,g,x,o,c,a)}};function u(){me(r,"GIF89a")}}function St(t,e,n,r,i){t.writeByte(33),t.writeByte(249),t.writeByte(4),i<0&&(i=0,r=!1);var o,c;r?(o=1,c=2):(o=0,c=0),e>=0&&(c=e&7),c<<=2,t.writeByte(0|c|0|o),P(t,n),t.writeByte(i||0),t.writeByte(0)}function mt(t,e,n,r,i=8){let a=ie(r.length)-1,f=128|i-1<<4|0|a,u=0,l=0;P(t,e),P(t,n),t.writeBytes([f,u,l])}function Mt(t,e){t.writeByte(33),t.writeByte(255),t.writeByte(11),me(t,"NETSCAPE2.0"),t.writeByte(3),t.writeByte(1),P(t,e),t.writeByte(0)}function he(t,e){let n=1<<ie(e.length);for(let r=0;r<n;r++){let i=[0,0,0];r<e.length&&(i=e[r]),t.writeByte(i[0]),t.writeByte(i[1]),t.writeByte(i[2])}}function It(t,e,n,r){if(t.writeByte(44),P(t,0),P(t,0),P(t,e),P(t,n),r){let c=ie(r.length)-1;t.writeByte(128|c)}else t.writeByte(0)}function Ct(t,e,n,r,i=8,o,c,a){yt(n,r,e,i,t,o,c,a)}function P(t,e){t.writeByte(e&255),t.writeByte(e>>8&255)}function me(t,e){for(var n=0;n<e.length;n++)t.writeByte(e.charCodeAt(n))}function ie(t){return Math.max(Math.ceil(Math.log2(t)),1)}var zt=Se});var Ut={};Te(Ut,{GIFEncoder:()=>j.GIFEncoder,applyPalette:()=>j.applyPalette,decompressFrames:()=>Y.decompressFrames,parseGIF:()=>Y.parseGIF,quantize:()=>j.quantize});var Y=se(ge()),j=se(Me());return qe(Ut);})();
+</script><script>
+(() => {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+
+const FONTS = [
+  { id: 'Anton', label: 'Anton (Impact-style)', css: '"Anton", Impact, "Arial Black", sans-serif', w: 400 },
+  { id: 'Impact', label: 'Impact (system)', css: 'Impact, "Anton", "Arial Black", sans-serif', w: 400 },
+  { id: 'Oswald', label: 'Oswald', css: '"Oswald", "Arial Narrow", sans-serif', w: 600 },
+  { id: 'Archivo Black', label: 'Archivo Black', css: '"Archivo Black", "Arial Black", sans-serif', w: 400 },
+  { id: 'Bangers', label: 'Bangers (comic)', css: '"Bangers", "Comic Sans MS", cursive', w: 400 },
+  { id: 'Comic Neue', label: 'Comic Neue', css: '"Comic Neue", "Comic Sans MS", cursive', w: 700 },
+  { id: 'Permanent Marker', label: 'Permanent Marker', css: '"Permanent Marker", "Comic Sans MS", cursive', w: 400 },
+];
+const fontById = (id) => FONTS.find(f => f.id === id) || FONTS[0];
+const fontStr = (id, px) => { const f = fontById(id); return `${f.w} ${px}px ${f.css}`; };
+
+let uid = 1;
+const newLayer = (o) => Object.assign({
+  id: uid++, text: 'TEXT', font: 'Anton', align: 'center', size: 10, fill: '#ffffff', stroke: '#000000',
+  strokeW: 10, upper: true, shadow: false, x: 0.5, y: 0.5, anchor: 'middle', from: 1, to: null,
+}, o);
+
+const S = {
+  src: null, // {w,h,frames:[{c,delay}],name}
+  layers: [], sel: 0,
+  cap: { on: false, text: 'me pretending I tested it locally', font: 'Oswald', size: 7, bg: '#ffffff', fg: '#111111' },
+  trimA: 0, trimB: 0, speed: 1, dir: 'forward', fx: 'none', outW: 0, colors: 256,
+};
+
+/* ---------- source loading ---------- */
+function makeSample() {
+  const W = 360, H = 300, N = 24, frames = [];
+  for (let i = 0; i < N; i++) {
+    const c = mk(W, H), g = c.getContext('2d'), t = i / N;
+    g.fillStyle = '#5a189a'; g.fillRect(0, 0, W, H);
+    g.save(); g.translate(W / 2, H * 0.55); g.rotate(t * Math.PI * 2 / 8);
+    for (let r = 0; r < 16; r++) {
+      g.fillStyle = r % 2 ? '#7b2cbf' : '#9d4edd';
+      g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 400, (r / 16) * Math.PI * 2, ((r + 1) / 16) * Math.PI * 2); g.fill();
+    }
+    g.restore();
+    const b = Math.abs(Math.sin(t * Math.PI * 2));
+    const cy = 205 - b * 55, sq = 1 - (1 - b) * 0.18;
+    g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(W / 2, 262, 60 - b * 18, 10, 0, 0, Math.PI * 2); g.fill();
+    g.save(); g.translate(W / 2, cy); g.scale(1 / sq, sq);
+    g.fillStyle = '#ffc934'; g.beginPath(); g.arc(0, 0, 50, 0, Math.PI * 2); g.fill();
+    g.lineWidth = 4; g.strokeStyle = '#15171f'; g.stroke();
+    g.fillStyle = '#15171f';
+    g.beginPath(); g.ellipse(-17, -10, 6, 9, 0, 0, Math.PI * 2); g.ellipse(17, -10, 6, 9, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(0, 8, 22, 0.1 * Math.PI, 0.9 * Math.PI); g.lineWidth = 5; g.lineCap = 'round'; g.stroke();
+    g.restore();
+    frames.push({ c, delay: 50 });
+  }
+  return { w: W, h: H, frames, name: 'sample', sample: true };
+}
+
+function decodeGif(buf) {
+  const gif = GifLib.parseGIF(buf);
+  const fr = GifLib.decompressFrames(gif, true);
+  if (!fr.length) throw new Error('No frames found in this GIF.');
+  const W = gif.lsd.width, H = gif.lsd.height;
+  const full = mk(W, H), fctx = full.getContext('2d', { willReadFrequently: true });
+  const pc = mk(1, 1), pctx = pc.getContext('2d');
+  const frames = []; let prev = null, restore = null;
+  const MAX = 400;
+  for (const f of fr.slice(0, MAX)) {
+    if (prev) {
+      if (prev.disposalType === 2) fctx.clearRect(prev.dims.left, prev.dims.top, prev.dims.width, prev.dims.height);
+      else if (prev.disposalType === 3 && restore) fctx.putImageData(restore, 0, 0);
+    }
+    restore = f.disposalType === 3 ? fctx.getImageData(0, 0, W, H) : null;
+    const { width, height, left, top } = f.dims;
+    if (width > 0 && height > 0) {
+      pc.width = width; pc.height = height;
+      pctx.putImageData(new ImageData(f.patch, width, height), 0, 0);
+      fctx.drawImage(pc, left, top);
+    }
+    const snap = mk(W, H); snap.getContext('2d').drawImage(full, 0, 0);
+    frames.push({ c: snap, delay: f.delay && f.delay > 10 ? f.delay : 100 });
+    prev = f;
+  }
+  return { w: W, h: H, frames, truncated: fr.length > MAX ? fr.length : 0 };
+}
+
+async function loadFile(file) {
+  if (!file) return;
+  if (!/^image\//.test(file.type) && !/\.(gif|png|jpe?g|webp)$/i.test(file.name)) {
+    setInfo(`“${file.name}” isn't an image. Open a GIF, PNG, JPG or WebP.`); return;
+  }
+  $('busy').hidden = false;
+  await new Promise(r => setTimeout(r, 30));
+  try {
+    let src;
+    if (file.type === 'image/gif' || /\.gif$/i.test(file.name)) {
+      src = decodeGif(await file.arrayBuffer());
+    } else {
+      const bmp = await createImageBitmap(file);
+      const c = mk(bmp.width, bmp.height); c.getContext('2d').drawImage(bmp, 0, 0);
+      src = { w: bmp.width, h: bmp.height, frames: [{ c, delay: 100 }] };
+    }
+    src.name = (file.name || 'meme').replace(/\.[^.]+$/, '') || 'meme';
+    setSource(src);
+  } catch (e) {
+    setInfo(`Couldn't read that file: ${e.message || e}. Try a different GIF.`);
+  } finally { $('busy').hidden = true; }
+}
+
+function setSource(src) {
+  S.src = src; fxCache.clear();
+  const n = src.frames.length;
+  S.trimA = 0; S.trimB = n - 1;
+  for (const L of S.layers) { L.from = Math.min(L.from, n); if (L.to != null && L.to > n) L.to = null; }
+  S.outW = src.w > 480 ? 480 : 0;
+  buildOutW();
+  const pv = Math.max(1, Math.min(3, 520 / src.w));
+  S.pvScale = pv;
+  $('result').hidden = true;
+  syncAll(); rebuildSeq(); pos = 0; draw();
+  const total = src.frames.reduce((a, f) => a + f.delay, 0) / 1000;
+  let info = src.sample
+    ? `Sample GIF · ${src.w}×${src.h} · ${n} frames. Open, drop or paste your own to start.`
+    : `${src.name} · ${src.w}×${src.h} · ${n} frame${n > 1 ? 's' : ''} · ${total.toFixed(1)} s`;
+  if (src.truncated) info += ` (first 400 of ${src.truncated} frames loaded)`;
+  setInfo(info);
+}
+function setInfo(t) { $('srcInfo').textContent = t; }
+
+/* ---------- filters ---------- */
+const fxCache = new Map();
+function frameCanvas(i) {
+  const fr = S.src.frames[i];
+  if (S.fx === 'none') return fr.c;
+  const key = S.fx + ':' + i;
+  if (fxCache.has(key)) return fxCache.get(key);
+  const { w, h } = S.src, c = mk(w, h), g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(fr.c, 0, 0);
+  const img = g.getImageData(0, 0, w, h), d = img.data;
+  for (let p = 0; p < d.length; p += 4) {
+    let r = d[p], gg = d[p + 1], b = d[p + 2];
+    if (S.fx === 'mono') {
+      const l = (0.299 * r + 0.587 * gg + 0.114 * b - 128) * 1.15 + 128; r = gg = b = l;
+    } else if (S.fx === 'invert') {
+      r = 255 - r; gg = 255 - gg; b = 255 - b;
+    } else if (S.fx === 'vintage') {
+      const nr = 0.393 * r + 0.769 * gg + 0.189 * b, ng = 0.349 * r + 0.686 * gg + 0.168 * b, nb = 0.272 * r + 0.534 * gg + 0.131 * b;
+      r = nr * 0.85 + 28; gg = ng * 0.85 + 22; b = nb * 0.8 + 18;
+    } else if (S.fx === 'deepfry') {
+      const l = 0.299 * r + 0.587 * gg + 0.114 * b;
+      r = l + (r - l) * 2.6; gg = l + (gg - l) * 2.6; b = l + (b - l) * 2.6;
+      r = (r - 128) * 1.8 + 128 + 30; gg = (gg - 128) * 1.8 + 128 + 5; b = (b - 128) * 1.8 + 128 - 35;
+      const n = ((((p >> 2) * 2654435761) >>> 0) % 41) - 20; r += n; gg += n; b += n;
+    }
+    d[p] = r; d[p + 1] = gg; d[p + 2] = b;
+  }
+  g.putImageData(img, 0, 0);
+  fxCache.set(key, c);
+  return c;
+}
+
+/* ---------- rendering ---------- */
+function wrap(g, text, maxW) {
+  const out = [];
+  for (const para of String(text).split('\n')) {
+    const words = para.split(/\s+/).filter(Boolean);
+    if (!words.length) { out.push(''); continue; }
+    let line = '';
+    for (const w of words) {
+      const t = line ? line + ' ' + w : w;
+      if (line && g.measureText(t).width > maxW) { out.push(line); line = w; } else line = t;
+    }
+    out.push(line);
+  }
+  return out;
+}
+
+function captionLayout(g, iw) {
+  if (!S.cap.on || !S.cap.text.trim()) return { h: 0 };
+  const px = S.cap.size / 100 * iw;
+  g.font = fontStr(S.cap.font, px);
+  const lines = wrap(g, S.cap.text, iw * 0.9);
+  const lh = px * 1.2, pad = px * 0.65;
+  return { h: Math.round(lines.length * lh + pad * 2), lines, px, lh, pad };
+}
+
+// Renders one output frame into canvas c. Returns layer hit boxes in canvas pixels.
+function render(c, scale, fi, withSel) {
+  const g = c.getContext('2d', { willReadFrequently: true });
+  const iw = Math.round(S.src.w * scale), ih = Math.round(S.src.h * scale);
+  const cap = captionLayout(g, iw);
+  const H = cap.h + ih;
+  if (c.width !== iw || c.height !== H) { c.width = iw; c.height = H; }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.shadowColor = 'transparent';
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, iw, H);
+  if (cap.h) {
+    g.fillStyle = S.cap.bg; g.fillRect(0, 0, iw, cap.h);
+    g.font = fontStr(S.cap.font, cap.px); g.fillStyle = S.cap.fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+    cap.lines.forEach((ln, k) => g.fillText(ln, iw / 2, cap.pad + cap.lh * (k + 0.5)));
+  }
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(frameCanvas(fi), 0, cap.h, iw, ih);
+
+  const hits = [];
+  S.layers.forEach((L, idx) => {
+    const to = L.to == null ? S.src.frames.length : L.to;
+    const visible = fi + 1 >= L.from && fi + 1 <= to;
+    const text = L.upper ? L.text.toUpperCase() : L.text;
+    const px = L.size / 100 * iw;
+    g.font = fontStr(L.font, px);
+    const lines = wrap(g, text, iw * 0.94);
+    const lh = px * 1.12, bh = lines.length * lh;
+    const bw = Math.max(1, ...lines.map(l => g.measureText(l).width));
+    const cx = L.x * iw;
+    const top = cap.h + (L.anchor === 'top' ? L.y * ih : L.anchor === 'bottom' ? L.y * ih - bh : L.y * ih - bh / 2);
+    const tx = L.align === 'left' ? cx - bw / 2 : L.align === 'right' ? cx + bw / 2 : cx;
+    hits[idx] = { x: cx - bw / 2, y: top, w: bw, h: bh, visible };
+    if (!visible || !text.trim()) return;
+    g.textAlign = L.align; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.miterLimit = 2;
+    const sw = px * L.strokeW / 40;
+    const shadow = () => {
+      if (L.shadow) { g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = px * 0.18; g.shadowOffsetX = px * 0.05; g.shadowOffsetY = px * 0.07; }
+    };
+    const noShadow = () => { g.shadowColor = 'transparent'; g.shadowBlur = 0; g.shadowOffsetX = g.shadowOffsetY = 0; };
+    if (sw > 0) {
+      shadow(); g.strokeStyle = L.stroke; g.lineWidth = sw;
+      lines.forEach((ln, k) => g.strokeText(ln, tx, top + lh * (k + 0.5)));
+      noShadow();
+    } else shadow();
+    g.fillStyle = L.fill;
+    lines.forEach((ln, k) => g.fillText(ln, tx, top + lh * (k + 0.5)));
+    noShadow();
+  });
+
+  if (withSel && S.layers[S.sel] && hits[S.sel]) {
+    const h = hits[S.sel], p = Math.max(4, iw * 0.012);
+    g.save(); g.setLineDash([6, 4]); g.lineWidth = 2; g.strokeStyle = '#ffc934';
+    g.globalAlpha = h.visible ? 1 : 0.5;
+    g.strokeRect(h.x - p, h.y - p / 2, h.w + p * 2, h.h + p); g.restore();
+  }
+  return hits;
+}
+
+/* ---------- playback ---------- */
+const view = $('view');
+let seq = [0], pos = 0, playing = true, last = 0, hits = [];
+function rebuildSeq() {
+  const a = Math.min(S.trimA, S.trimB), b = Math.max(S.trimA, S.trimB);
+  let base = []; for (let i = a; i <= b; i++) base.push(i);
+  if (S.dir === 'reverse') base.reverse();
+  else if (S.dir === 'boomerang' && base.length > 2) base = base.concat(base.slice(1, -1).reverse());
+  seq = base.length ? base : [0];
+  if (pos >= seq.length) pos = 0;
+  $('scrub').max = seq.length - 1;
+  updateCounter();
+}
+const delayOf = (fi) => Math.max(20, Math.round(S.src.frames[fi].delay / S.speed / 10) * 10);
+function updateCounter() {
+  const total = seq.reduce((a, fi) => a + delayOf(fi), 0) / 1000;
+  $('counter').textContent = `frame ${seq[pos] + 1} · ${pos + 1}/${seq.length} · ${total.toFixed(2)}s loop`;
+  $('scrub').value = pos;
+}
+function draw() {
+  if (!S.src) return;
+  hits = render(view, S.pvScale, seq[pos], true);
+}
+function tick(now) {
+  if (playing && seq.length > 1 && now - last >= delayOf(seq[pos])) {
+    pos = (pos + 1) % seq.length; last = now; draw(); updateCounter();
+  }
+  requestAnimationFrame(tick);
+}
+function setPlaying(p) {
+  playing = p; $('playBtn').textContent = p ? '❚❚' : '▶'; $('playBtn').setAttribute('aria-label', p ? 'Pause' : 'Play');
+}
+$('playBtn').onclick = () => setPlaying(!playing);
+$('scrub').oninput = (e) => { setPlaying(false); pos = +e.target.value; draw(); updateCounter(); };
+
+/* ---------- dragging text ---------- */
+let drag = null;
+function toCanvas(e) {
+  const r = view.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * view.width / r.width, y: (e.clientY - r.top) * view.height / r.height };
+}
+view.addEventListener('pointerdown', (e) => {
+  const p = toCanvas(e), pad = view.width * 0.02;
+  for (let i = S.layers.length - 1; i >= 0; i--) {
+    const h = hits[i];
+    if (h && p.x >= h.x - pad && p.x <= h.x + h.w + pad && p.y >= h.y - pad && p.y <= h.y + h.h + pad) {
+      S.sel = i; syncEditor(); renderLayerList();
+      drag = { p, L: S.layers[i], x: S.layers[i].x, y: S.layers[i].y };
+      view.setPointerCapture(e.pointerId); view.style.cursor = 'grabbing'; draw(); e.preventDefault(); return;
+    }
+  }
+});
+view.addEventListener('pointermove', (e) => {
+  const p = toCanvas(e);
+  if (!drag) {
+    const over = hits.some(h => h && p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h);
+    view.style.cursor = over ? 'grab' : 'default'; return;
+  }
+  const iw = view.width, ih = Math.round(S.src.h * S.pvScale);
+  drag.L.x = Math.min(1, Math.max(0, drag.x + (p.x - drag.p.x) / iw));
+  drag.L.y = Math.min(1.2, Math.max(-0.2, drag.y + (p.y - drag.p.y) / ih));
+  draw();
+});
+const endDrag = () => { if (drag) { drag = null; view.style.cursor = 'grab'; } };
+view.addEventListener('pointerup', endDrag);
+view.addEventListener('pointercancel', endDrag);
+
+/* ---------- layer UI ---------- */
+function renderLayerList() {
+  const box = $('layerList'); box.textContent = '';
+  S.layers.forEach((L, i) => {
+    const b = document.createElement('button');
+    b.className = 'layer'; b.setAttribute('role', 'option'); b.setAttribute('aria-selected', i === S.sel);
+    const t = document.createElement('span'); t.className = 't'; t.textContent = (L.upper ? L.text.toUpperCase() : L.text) || '(empty)';
+    const k = document.createElement('span'); k.className = 'k';
+    const to = L.to == null ? '' : L.to;
+    k.textContent = L.from > 1 || L.to != null ? `f${L.from}–${to || 'end'}` : fontById(L.font).id;
+    b.append(t, k);
+    b.onclick = () => { S.sel = i; syncEditor(); renderLayerList(); draw(); };
+    box.append(b);
+  });
+  const has = S.layers.length > 0;
+  $('editor').hidden = !has; $('delText').disabled = !has; $('dupText').disabled = !has;
+}
+function fillFontSelect(sel) {
+  FONTS.forEach(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.label; sel.append(o); });
+}
+fillFontSelect($('tFont')); fillFontSelect($('cFont'));
+const cur = () => S.layers[S.sel];
+function syncEditor() {
+  const L = cur(); if (!L) return;
+  $('tText').value = L.text; $('tFont').value = L.font; $('tAlign').value = L.align;
+  $('tSize').value = L.size; $('tSizeO').textContent = L.size + '%';
+  $('tFill').value = L.fill; $('tStroke').value = L.stroke;
+  $('tStrokeW').value = L.strokeW; $('tStrokeWO').textContent = L.strokeW;
+  $('tUpper').checked = L.upper; $('tShadow').checked = L.shadow;
+  const n = S.src ? S.src.frames.length : 1;
+  $('tFrom').max = n; $('tTo').max = n;
+  $('tFrom').value = L.from; $('tTo').value = L.to == null ? n : L.to;
+}
+const bindL = (id, key, parse = (v) => v, ev = 'input') => $(id).addEventListener(ev, (e) => {
+  const L = cur(); if (!L) return;
+  L[key] = parse(e.target.type === 'checkbox' ? e.target.checked : e.target.value);
+  if (key === 'size') $('tSizeO').textContent = L.size + '%';
+  if (key === 'strokeW') $('tStrokeWO').textContent = L.strokeW;
+  if (key === 'font') loadFont(L.font);
+  if (key === 'text' || key === 'upper' || key === 'font') renderLayerList();
+  draw();
+});
+bindL('tText', 'text'); bindL('tFont', 'font', String, 'change'); bindL('tAlign', 'align', String, 'change');
+bindL('tSize', 'size', Number); bindL('tFill', 'fill'); bindL('tStroke', 'stroke'); bindL('tStrokeW', 'strokeW', Number);
+bindL('tUpper', 'upper', Boolean, 'change'); bindL('tShadow', 'shadow', Boolean, 'change');
+$('tFrom').addEventListener('change', (e) => {
+  const L = cur(); const n = S.src.frames.length; L.from = clampInt(e.target.value, 1, n); e.target.value = L.from; renderLayerList(); draw();
+});
+$('tTo').addEventListener('change', (e) => {
+  const L = cur(); const n = S.src.frames.length; const v = clampInt(e.target.value, 1, n);
+  L.to = v >= n ? null : v; e.target.value = v; renderLayerList(); draw();
+});
+const clampInt = (v, a, b) => Math.min(b, Math.max(a, Math.round(Number(v) || a)));
+
+$('addText').onclick = () => {
+  S.layers.push(newLayer({ text: 'NEW TEXT', y: 0.5, anchor: 'middle' }));
+  S.sel = S.layers.length - 1; renderLayerList(); syncEditor(); draw(); $('tText').focus(); $('tText').select();
+};
+$('dupText').onclick = () => {
+  const L = cur(); if (!L) return;
+  S.layers.push(newLayer(Object.assign({}, L, { id: undefined, y: Math.min(1, L.y + 0.08) })));
+  S.layers[S.layers.length - 1].id = uid++;
+  S.sel = S.layers.length - 1; renderLayerList(); syncEditor(); draw();
+};
+$('delText').onclick = () => {
+  if (!cur()) return;
+  S.layers.splice(S.sel, 1); S.sel = Math.max(0, S.sel - 1); renderLayerList(); syncEditor(); draw();
+};
+
+/* ---------- caption ---------- */
+function syncCaption() {
+  $('cOn').checked = S.cap.on; $('cText').value = S.cap.text; $('cFont').value = S.cap.font;
+  $('cSize').value = S.cap.size; $('cSizeO').textContent = S.cap.size + '%';
+  $('cBg').value = S.cap.bg; $('cFg').value = S.cap.fg; $('cFields').hidden = !S.cap.on;
+}
+$('cOn').onchange = (e) => { S.cap.on = e.target.checked; $('cFields').hidden = !S.cap.on; draw(); };
+$('cText').oninput = (e) => { S.cap.text = e.target.value; draw(); };
+$('cFont').onchange = (e) => { S.cap.font = e.target.value; loadFont(S.cap.font); draw(); };
+$('cSize').oninput = (e) => { S.cap.size = +e.target.value; $('cSizeO').textContent = S.cap.size + '%'; draw(); };
+$('cBg').oninput = (e) => { S.cap.bg = e.target.value; draw(); };
+$('cFg').oninput = (e) => { S.cap.fg = e.target.value; draw(); };
+
+/* ---------- timing ---------- */
+function syncTiming() {
+  const n = S.src.frames.length;
+  for (const id of ['trimA', 'trimB']) $(id).max = n;
+  $('trimA').value = S.trimA + 1; $('trimB').value = S.trimB + 1;
+  $('speed').value = S.speed; $('speedO').textContent = S.speed + '×';
+  setSeg('dirSeg', S.dir); setSeg('fxSeg', S.fx);
+}
+function setSeg(id, v) { $(id).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v)); }
+$('trimA').onchange = (e) => { S.trimA = clampInt(e.target.value, 1, S.src.frames.length) - 1; syncTiming(); rebuildSeq(); draw(); };
+$('trimB').onchange = (e) => { S.trimB = clampInt(e.target.value, 1, S.src.frames.length) - 1; syncTiming(); rebuildSeq(); draw(); };
+$('setA').onclick = () => { S.trimA = seq[pos]; if (S.trimA > S.trimB) S.trimB = S.trimA; syncTiming(); rebuildSeq(); pos = 0; draw(); updateCounter(); };
+$('setB').onclick = () => { S.trimB = seq[pos]; if (S.trimB < S.trimA) S.trimA = S.trimB; syncTiming(); rebuildSeq(); pos = 0; draw(); updateCounter(); };
+$('resetTrim').onclick = () => { S.trimA = 0; S.trimB = S.src.frames.length - 1; syncTiming(); rebuildSeq(); draw(); };
+$('speed').oninput = (e) => { S.speed = +e.target.value; $('speedO').textContent = S.speed + '×'; updateCounter(); };
+$('dirSeg').onclick = (e) => { const v = e.target.dataset && e.target.dataset.v; if (!v) return; S.dir = v; setSeg('dirSeg', v); rebuildSeq(); draw(); };
+$('fxSeg').onclick = (e) => { const v = e.target.dataset && e.target.dataset.v; if (!v) return; S.fx = v; fxCache.clear(); setSeg('fxSeg', v); draw(); };
+
+/* ---------- look / output ---------- */
+function buildOutW() {
+  const sel = $('outW'); sel.textContent = ''; const w = S.src.w;
+  const opts = [[0, `Original (${w}px)`]];
+  for (const v of [640, 480, 360, 240]) if (v < w) opts.push([v, `${v}px`]);
+  opts.forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o); });
+  if (!opts.some(o => o[0] === S.outW)) S.outW = 0;
+  sel.value = S.outW;
+}
+$('outW').onchange = (e) => { S.outW = +e.target.value; };
+$('colors').onchange = (e) => { S.colors = +e.target.value; };
+
+function syncAll() { renderLayerList(); syncEditor(); syncCaption(); syncTiming(); }
+
+/* ---------- fonts ---------- */
+function loadFont(id) {
+  const f = fontById(id);
+  if (!document.fonts || f.id === 'Impact') return;
+  document.fonts.load(`${f.w} 40px "${f.id}"`).then(draw, () => {});
+}
+
+/* ---------- export ---------- */
+let lastBlob = null, lastName = 'meme.gif';
+$('exportBtn').onclick = async () => {
+  const btn = $('exportBtn'), prog = $('prog'), bar = prog.querySelector('i'), st = $('status');
+  btn.disabled = true; prog.hidden = false; bar.style.width = '0%'; st.hidden = true; st.className = 'status';
+  try {
+    const scale = S.outW ? S.outW / S.src.w : 1;
+    const c = mk(1, 1), g = c.getContext('2d', { willReadFrequently: true });
+    const enc = GifLib.GIFEncoder();
+    const frames = seq.slice();
+    for (let k = 0; k < frames.length; k++) {
+      render(c, scale, frames[k], false);
+      const { data } = g.getImageData(0, 0, c.width, c.height);
+      const palette = GifLib.quantize(data, S.colors);
+      const index = GifLib.applyPalette(data, palette);
+      enc.writeFrame(index, c.width, c.height, { palette, delay: delayOf(frames[k]) });
+      bar.style.width = ((k + 1) / frames.length * 100).toFixed(1) + '%';
+      btn.textContent = `Encoding ${k + 1}/${frames.length}…`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+    enc.finish();
+    lastBlob = new Blob([enc.bytes()], { type: 'image/gif' });
+    lastName = `${S.src.name || 'meme'}-meme.gif`;
+    const img = $('resultImg');
+    if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+    img.dataset.url = img.src = URL.createObjectURL(lastBlob);
+    $('resultMeta').textContent = `${c.width}×${c.height} · ${frames.length} frames · ${(lastBlob.size / 1024).toFixed(lastBlob.size > 1048576 ? 0 : 1)} KB`;
+    $('result').hidden = false;
+    $('saveBtn').hidden = !dl; $('saveNote').hidden = !!dl;
+  } catch (e) {
+    st.hidden = false; st.className = 'status err'; st.textContent = `Export failed: ${e.message || e}. Try a smaller output width.`;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Make GIF'; setTimeout(() => { prog.hidden = true; }, 600);
+  }
+};
+
+let dl = null;
+try {
+  if (window.claude && typeof window.claude.use === 'function') {
+    window.claude.use('downloads').then(x => { dl = x; if (!$('result').hidden) { $('saveBtn').hidden = !dl; $('saveNote').hidden = !!dl; } }, () => {});
+  }
+} catch (_) {}
+$('saveBtn').onclick = async () => {
+  if (!lastBlob) return;
+  const st = $('status');
+  if (!dl) { $('saveNote').hidden = false; return; }
+  try {
+    await dl.save({ filename: lastName, data: lastBlob });
+    st.hidden = false; st.className = 'status'; st.textContent = `Saved ${lastName}.`;
+  } catch (e) {
+    const code = e && e.code;
+    if (code === 'declined') return;
+    if (code === 'rate_limited') { st.hidden = false; st.className = 'status'; st.textContent = 'A save prompt is already open. Finish that one first.'; return; }
+    $('saveBtn').hidden = true; $('saveNote').hidden = false;
+  }
+};
+
+/* ---------- file input, drop, paste ---------- */
+$('fileIn').onchange = (e) => { loadFile(e.target.files[0]); e.target.value = ''; };
+const stage = $('stage');
+document.addEventListener('dragover', (e) => { e.preventDefault(); stage.classList.add('dragover'); });
+document.addEventListener('dragleave', (e) => { if (!e.relatedTarget) stage.classList.remove('dragover'); });
+document.addEventListener('drop', (e) => {
+  e.preventDefault(); stage.classList.remove('dragover');
+  const f = [...(e.dataTransfer.files || [])].find(f => /^image\//.test(f.type)) || e.dataTransfer.files[0];
+  loadFile(f);
+});
+document.addEventListener('paste', (e) => {
+  const f = [...(e.clipboardData && e.clipboardData.files || [])].find(f => /^image\//.test(f.type));
+  if (f) { e.preventDefault(); loadFile(f); }
+});
+
+/* ---------- boot ---------- */
+S.layers = [
+  newLayer({ text: 'when the build passes', y: 0.03, anchor: 'top' }),
+  newLayer({ text: 'on the first try', y: 0.97, anchor: 'bottom' }),
+];
+setSource(makeSample());
+setPlaying(true);
+if (document.fonts) {
+  FONTS.forEach(f => loadFont(f.id));
+  document.fonts.ready.then(draw);
+}
+requestAnimationFrame(tick);
+})();
+</script></body></html>
